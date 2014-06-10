@@ -178,8 +178,17 @@ end
 -- Define general functions here
 
 -- on SlashCommand "/rover"
-function Rover:OnRoverOn()
+function Rover:OnRoverOn(cmd,param)
 	self.wndMain:Show(not self.wndMain:IsVisible()) -- toggle the window
+
+	if param then
+		local ok,results=pcall(loadstring("return "..param))
+		if ok then
+			self:AddWatch(param,results)
+		else
+			self:AddWatch("Bad parameters:",param)
+		end
+	end
 end
 
 -- Refactored so can be used for timestamping Events
