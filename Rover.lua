@@ -169,7 +169,7 @@ function Rover:OnInterfaceMenuListHasLoaded()
 end
 
 function Rover:OnTreeRefreshHack()
-	local atBottom = self.wndTree:GetVScrollRange()-self.wndTree:GetVScrollPos()<100
+	local atBottom = self.wndMain:FindChild("AutoScrollButton"):IsChecked()
 	if atBottom then self.wndTree:SetVScrollPos(self.wndTree:GetVScrollRange())
 	else self.wndTree:SetVScrollPos(self.wndTree:GetVScrollPos()) end
 end
@@ -292,10 +292,57 @@ function Rover:AddVariable(strName, var, hParent)
 		local hPlace = self.wndTree:AddNode(hNewNode, "PLACEHOLDER", "")
 		self.wndTree:CollapseNode(hNewNode)
 	end
+
+	local str = tostring(var)
+	if (true or self.CFG_EXPLAIN_USERDATA) and strType=="userdata" then
+		str = self:AnalyzeUserData(var)
+	end
 	
-	self.wndTree:SetNodeText(hNewNode, eRoverColumns.Value, tostring(var))
+	self.wndTree:SetNodeText(hNewNode, eRoverColumns.Value, str)
 	self:UpdateTimeStamp(hNewNode)
 end
+
+
+function Rover:PrepareUserDataMetatables()
+	self.userdataDisplay = {}
+	
+	local userdata_src = {
+		UNIT = {
+			example = GameLib.GetPlayerUnit(),
+			display = function(u) return "<UNIT "..u:GetName()..">" end,
+		},
+		EPISODE = {
+			example = QuestLib.GetAllEpisodes()[1],
+			display = function(u) return ("<EPISODE #%d \"%s\" >"):format(u:GetId(),u:GetTitle()) end,
+		},
+		QUEST = {
+			example = QuestLib.GetAllEpisodes()[1]:GetAllQuests()[1],
+			display = function(u) return ("<QUEST #%d \"%s\" >"):format(u:GetId(),u:GetTitle()) end,
+		},
+		VECTOR3 = {
+			example = Vector3.New(0,0,0),
+			display = function(u)
+				local s = tostring(u)
+				local x,y,z = s:match("Vector3%((.*), (.*), (.*)%)")
+				if z then return ("Vector3 (%.2f, %.2f, %.2f)"):format(tonumber(x),tonumber(y),tonumber(z)) end
+			end,
+		}
+	}
+	for k,v in pairs(userdata_src) do
+		if v.example then
+			self.userdataDisplay[getmetatable(v.example)]=v.display
+		end -- if not, then we don't have an example, too bad :(
+	end
+end
+
+function Rover:AnalyzeUserData(userdata)
+	if not self.userdataDisplay then self:PrepareUserDataMetatables() end
+	local meta = getmetatable(userdata)
+	local display_func = meta and self.userdataDisplay[meta] or tostring
+	return display_func(userdata)
+end
+
+
 
 function Rover:OnExpandNode( wndHandler, wndControl, hNode )
 	local var = self.wndTree:GetNodeData(hNode)
