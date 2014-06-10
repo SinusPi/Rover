@@ -303,43 +303,25 @@ function Rover:AddVariable(strName, var, hParent)
 end
 
 
-function Rover:PrepareUserDataMetatables()
-	self.userdataDisplay = {}
-	
-	local userdata_src = {
-		UNIT = {
-			example = GameLib.GetPlayerUnit(),
-			display = function(u) return "<UNIT "..u:GetName()..">" end,
-		},
-		EPISODE = {
-			example = QuestLib.GetAllEpisodes()[1],
-			display = function(u) return ("<EPISODE #%d \"%s\" >"):format(u:GetId(),u:GetTitle()) end,
-		},
-		QUEST = {
-			example = QuestLib.GetAllEpisodes()[1]:GetAllQuests()[1],
-			display = function(u) return ("<QUEST #%d \"%s\" >"):format(u:GetId(),u:GetTitle()) end,
-		},
-		VECTOR3 = {
-			example = Vector3.New(0,0,0),
-			display = function(u)
-				local s = tostring(u)
-				local x,y,z = s:match("Vector3%((.*), (.*), (.*)%)")
-				if z then return ("Vector3 (%.2f, %.2f, %.2f)"):format(tonumber(x),tonumber(y),tonumber(z)) end
-			end,
-		}
-	}
-	for k,v in pairs(userdata_src) do
-		if v.example then
-			self.userdataDisplay[getmetatable(v.example)]=v.display
-		end -- if not, then we don't have an example, too bad :(
-	end
-end
+Rover.userdataDisplay = {
+	[Unit] = function(u) return "<UNIT "..u:GetName()..">" end,
+	[Episode] = function(u) return ("<EPISODE #%d \"%s\" >"):format(u:GetId(),u:GetTitle()) end,
+	[PathEpisode] = function(u) return ("<PATHEPISODE \"%s\" (%s)>"):format(u:GetName(),u:GetWorldZone()) end,
+	[Quest] = function(u) return ("<QUEST #%d \"%s\">"):format(u:GetId(),u:GetTitle()) end,
+	[PathMission] = function(u) return ("<PATHMISSION #%d \"%s\" (%d/%d)>"):format(u:GetId(),u:GetName(),u:GetNumCompleted(),u:GetNumNeeded()) end,
+	[Vector3] = function(u)
+			local s = tostring(u)
+			local x,y,z = s:match("Vector3%((.*), (.*), (.*)%)")
+			if z then return ("Vector3 (%.2f, %.2f, %.2f)"):format(tonumber(x),tonumber(y),tonumber(z)) end
+		end,
+}
 
 function Rover:AnalyzeUserData(userdata)
-	if not self.userdataDisplay then self:PrepareUserDataMetatables() end
-	local meta = getmetatable(userdata)
-	local display_func = meta and self.userdataDisplay[meta] or tostring
-	return display_func(userdata)
+	for base,display in pairs(self.userdataDisplay) do
+		if base.is and base.is(userdata) then return display(userdata) end
+		if base.Is and base.Is(userdata) then return display(userdata) end
+	end
+	return tostring(userdata)
 end
 
 
@@ -369,12 +351,20 @@ end
 
 function Rover:OnTwoClicks( wndHandler, wndControl, hNode )
 	local var = self.wndTree:GetNodeData(hNode)
+
+	local hParent = self.wndTree:GetParentNode(hNode)
+
+	local parentvar = self.wndTree:GetNodeData(hParent)
+
+	if parentvar==_G.Sound then
+		Sound.Play(var)
+		return
+	end
+
 	if type(var) ~= "function" then
 		return
 	end
 	
-	local hParent = self.wndTree:GetParentNode(hNode)
-
 	if Apollo.IsShiftKeyDown() then
 		self.wndParametersDialog:SetData(hNode)
 		self.wndParametersDialog:Show(true)
