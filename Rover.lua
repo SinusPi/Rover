@@ -169,7 +169,9 @@ function Rover:OnInterfaceMenuListHasLoaded()
 end
 
 function Rover:OnTreeRefreshHack()
-	self.wndTree:SetVScrollPos(self.wndTree:GetVScrollPos())
+	local atBottom = self.wndTree:GetVScrollRange()-self.wndTree:GetVScrollPos()<100
+	if atBottom then self.wndTree:SetVScrollPos(self.wndTree:GetVScrollRange())
+	else self.wndTree:SetVScrollPos(self.wndTree:GetVScrollPos()) end
 end
 
 -----------------------------------------------------------------------------------------------
@@ -179,9 +181,9 @@ end
 
 -- on SlashCommand "/rover"
 function Rover:OnRoverOn(cmd,param)
-	self.wndMain:Show(not self.wndMain:IsVisible()) -- toggle the window
+	self.wndMain:Show(not self.wndMain:IsVisible() or param~="") -- toggle the window
 
-	if param then
+	if param and param~="" then
 		local ok,results=pcall(loadstring("return "..param))
 		if ok then
 			self:AddWatch(param,results)
@@ -252,6 +254,14 @@ end
 function Rover:OnWatchClose( wndHandler, wndControl, eMouseButton )
 	self.wndWatchDialog:FindChild("WatchInput"):SetText("")
 	self.wndWatchDialog:Show(false)
+end
+
+function Rover:OnAddAllEvents( wndHandler, wndControl, eMouseButton )
+	for i,event in ipairs(self.EventList) do
+		if not self.BadEvents[event] then
+			self:OnAddEventMonitor(event)
+		end
+	end
 end
 
 -----------------------------------------------------------------------------------------------
@@ -437,8 +447,21 @@ end
 function Rover:OnRemoveVarClicked(wndHandler, wndControl)
 	local hNode = self.wndTree:GetSelectedNode()
 	if hNode > 0 and self.wndTree:GetParentNode(hNode) == 0 then
-		self.tManagedVars[self.wndTree:GetNodeText(hNode, eRoverColumns.VarName)] = nil
+		local text = self.wndTree:GetNodeText(hNode, eRoverColumns.VarName)
+		self.tManagedVars[text] = nil
 		self.wndTree:DeleteNode(hNode)
+		
+		local eventName=text:match("Event: ([^%s]+)")
+		if eventName then
+			Print("Removing event "..eventName)
+			self:OnRemoveEventMonitor(eventName)
+			for i=1,9999 do
+				local nodetext = self.wndTree:GetNodeText(i, eRoverColumns.VarName)
+				if nodetext and nodetext:match("Event: "..eventName) then
+					self.wndTree:DeleteNode(i)
+				end
+			end
+		end
 	end
 end
 
