@@ -325,39 +325,11 @@ function Rover:AddVariable(strName, var, hParent)
 		self.wndTree:CollapseNode(hNewNode)
 	end
 
-	local str = tostring(var)
-	if (true or self.CFG_EXPLAIN_USERDATA) and strType=="userdata" then
-		str = self:AnalyzeUserData(var)
-	end
-	
 	local str = strType == "userdata" and self:AnalyzeUserData(var) or tostring(var)
 
 	self.wndTree:SetNodeText(hNewNode, eRoverColumns.Value, str)
 	self:UpdateTimeStamp(hNewNode)
 end
-
-
-Rover.userdataDisplay = {
-	[Unit] = function(u) return "<UNIT "..u:GetName()..">" end,
-	[Episode] = function(u) return ("<EPISODE #%d \"%s\" >"):format(u:GetId(),u:GetTitle()) end,
-	[PathEpisode] = function(u) return ("<PATHEPISODE \"%s\" (%s)>"):format(u:GetName(),u:GetWorldZone()) end,
-	[Quest] = function(u) return ("<QUEST #%d \"%s\">"):format(u:GetId(),u:GetTitle()) end,
-	[PathMission] = function(u) return ("<PATHMISSION #%d \"%s\" (%d/%d)>"):format(u:GetId(),u:GetName(),u:GetNumCompleted(),u:GetNumNeeded()) end,
-	[Vector3] = function(u)
-			local s = tostring(u)
-			local x,y,z = s:match("Vector3%((.*), (.*), (.*)%)")
-			if z then return ("Vector3 (%.2f, %.2f, %.2f)"):format(tonumber(x),tonumber(y),tonumber(z)) end
-		end,
-}
-
-function Rover:AnalyzeUserData(userdata)
-	for base,display in pairs(self.userdataDisplay) do
-		if base.is and base.is(userdata) then return display(userdata) end
-		if base.Is and base.Is(userdata) then return display(userdata) end
-	end
-	return tostring(userdata)
-end
-
 
 
 function Rover:OnExpandNode( wndHandler, wndControl, hNode )
