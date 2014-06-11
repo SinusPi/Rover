@@ -300,6 +300,15 @@ function Rover:AnalyzeUserData(userdata)
 end
 
 
+-- returns: "normal" #size of table and its real keycount.
+local function getTableSize(tab)
+	if type(tab)~="table" then return end
+	local realsize=0
+	for k in pairs(tab) do realsize=realsize+1 end
+	return #tab,realsize
+end
+
+
 function Rover:AddVariable(strName, var, hParent)
 	if hParent == 0 then
 		if self.tManagedVars[strName] ~= nil then
@@ -325,7 +334,9 @@ function Rover:AddVariable(strName, var, hParent)
 		self.wndTree:CollapseNode(hNewNode)
 	end
 
-	local str = strType == "userdata" and self:AnalyzeUserData(var) or tostring(var)
+	local str = (strType == "userdata" and self:AnalyzeUserData(var))
+	         or (strType == "table" and (tostring(var):gsub("table",("table [%d,%d]"):format(getTableSize(var)))))
+					 or tostring(var)
 
 	self.wndTree:SetNodeText(hNewNode, eRoverColumns.Value, str)
 	self:UpdateTimeStamp(hNewNode)
