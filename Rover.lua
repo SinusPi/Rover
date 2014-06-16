@@ -133,7 +133,7 @@ function Rover:OnDocumentLoaded()
 	self.wndMain:Show(false, true)
 
 	-- if the xmlDoc is no longer needed, you should set it to nil
-	self.xmlDoc = nil
+	-- self.xmlDoc = nil
 		
 	-- save some windows for later
 	self.wndTree = self.wndMain:FindChild("Variables")
@@ -303,6 +303,16 @@ function Rover:AnalyzeUserData(userdata)
 	return tostring(userdata)
 end
 
+function Rover:SelectIcon(var, strType, hParent)
+	local retVal
+	if strType == "function" then
+		retVal = "CRB_Basekit:kitIcon_Holo_LFG"
+	elseif strType == "number" and self.wndTree:GetNodeData(hParent) == _G.Sound then
+		retVal = "RoverSprites:SoundIcon"
+	end
+
+	return retVal
+end
 
 -- returns: "normal" #size of table and its real keycount.
 local function getTableSize(tab)
@@ -344,6 +354,11 @@ function Rover:AddVariable(strName, var, hParent)
 					 
 	if #str>100 then str=str:sub(1,100).." ..." end
 
+	local nodeIcon = self:SelectIcon(var, strType, hParent)
+	if nodeIcon then
+		self.wndTree:SetNodeImage(hNewNode, nodeIcon)
+	end
+	
 	self.wndTree:SetNodeText(hNewNode, eRoverColumns.Value, str)
 	self:UpdateTimeStamp(hNewNode)
 end
@@ -379,6 +394,9 @@ function Rover:OnTwoClicks( wndHandler, wndControl, hNode )
 	-- Play sounds, courtesy of SinusPi
 	if type(var) == "number" and self.wndTree:GetNodeData(hParent) == _G.Sound then
 		Sound.Play(var)
+		return
+	elseif type(var) == "string" then
+		self:GenerateTextBox(self.wndTree:GetNodeText(hNode, eRoverColumns.VarName), var)
 		return
 	elseif type(var) ~= "function" then
 		return
@@ -507,19 +525,28 @@ end
 function Rover:OnRemoveVarClicked(wndHandler, wndControl)
 	local hNode = self.wndTree:GetSelectedNode()
 	if hNode > 0 and self.wndTree:GetParentNode(hNode) == 0 then
-		local text = self.wndTree:GetNodeText(hNode, eRoverColumns.VarName)
-		self.tManagedVars[text] = nil
+		local strText = self.wndTree:GetNodeText(hNode, eRoverColumns.VarName)
+		self.tManagedVars[strText] = nil
 		self.wndTree:DeleteNode(hNode)
-		
-		local eventName=text:match("Event: ([^%s]+)")
-		if eventName then
-			Print("Removing event "..eventName)
-			self:OnRemoveEventMonitor(eventName)
-			for i=1,9999 do
-				local nodetext = self.wndTree:GetNodeText(i, eRoverColumns.VarName)
-				if nodetext and nodetext:match("Event: "..eventName) then
-					self.wndTree:DeleteNode(i)
-				end
+
+		if not Apollo.IsShiftKeyDown() then return end
+
+		local strMonitorName, strItemName = strText:match("(%w-): ([^%s]+)")
+
+		if strMonitorName == "Event" then
+			self:OnRemoveEventMonitor(strItemName)
+		elseif strMonitorName == "Channel" then
+			self:OnRemoveChannelListening(strItemName)
+		else
+			return  -- Nothing special
+		end
+
+		local strMatch = strMonitorName .. ": " .. strItemName
+		for k,v in pairs(self.tManagedVars) do
+			local strNodeText = self.wndTree:GetNodeText(v, eRoverColumns.VarName)
+			if strNodeText and strNodeText:match(strMatch) then
+				self.wndTree:DeleteNode(v)
+				self.tManagedVars[k] = nil
 			end
 		end
 	end
@@ -536,6 +563,15 @@ function Rover:OnRemoveAllVars( wndHandler, wndControl, eMouseButton )
 	end
 end
 
+function Rover:GenerateTextBox(strName, strText)
+	local wndTextBox = Apollo.LoadForm(self.xmlDoc, "TextBox", nil, self)
+	wndTextBox:FindChild("Title"):SetText(strName)
+	wndTextBox:FindChild("Text"):SetText(strText)
+end
+
+function Rover:OnTextBoxClose( wndHandler, wndControl, eMouseButton )
+	wndControl:GetParent():GetParent():Destroy()
+end
 -----------------------------------------------------------------------------------------------
 -- Rover Add buttons
 -----------------------------------------------------------------------------------------------
@@ -647,8 +683,8 @@ end
 
 function Rover:BuildMonitorFunc(eventName)
 	-- Use a closure instead, much cleaner than previous method
+	local eName = "Event: " .. eventName
 	return  function(self,...)
-				local eName = "Event: " .. eventName
 				self:AddWatch(eName, arg, 0)
 			end
 end
@@ -1021,8 +1057,8 @@ end
 
 function Rover:BuildChannelListener(strChannelName)
 	-- Closure for channel monitoring
+	local cName = "Channel: " .. strChannelName
 	return  function(self, ...)
-				local cName = "Channel: " .. strChannelName
 				self:AddWatch(cName, arg, 0)
 			end
 end
