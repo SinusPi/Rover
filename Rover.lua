@@ -68,10 +68,14 @@ local kStrDetailed = "detailed__data"
 Rover.userdataDisplay = {
 	[Unit] = function(u) return ("<UNIT %s (#%d)>"):format(u:GetName(), u:GetId()) end,
 	[Episode] = function(u) return ("<EPISODE #%d \"%s\">"):format(u:GetId(),u:GetTitle()) end,
-	[PathEpisode] = function(u) return ("<PATHEPISODE \"%s\" (%s)>"):format(u:GetName(),u:GetWorldZone()) end,
 	[Quest] = function(u) return ("<QUEST #%d \"%s\">"):format(u:GetId(),u:GetTitle()) end,
+	[PathEpisode] = function(u) return ("<PATHEPISODE \"%s\" (%s)>"):format(u:GetName(),u:GetWorldZone()) end,
 	[PathMission] = function(u) return ("<PATHMISSION #%d \"%s\" (%d/%d)>"):format(u:GetId(),u:GetName(),u:GetNumCompleted(),u:GetNumNeeded()) end,
+	--[GalacticArchiveArticle] = function(u) return ("<G.A.ARTICLE #%d \"%s\">"):format(u:GetId(),u:GetName()) end, --TODO
+	--[GalacticArchiveEntry] = function(u) return ("<G.A.ENTRY #%d \"%s\">"):format(u:GetId(),u:GetName()) end, --TODO
+
 	[Item] = function(u) return ("<ITEM #%d \"%s\">"):format(u:GetItemId(), u:GetName()) end,
+	[Window] = function(u) return ("<WINDOW \"%s\">"):format(u:GetName()) end,
 	[Vector3] = function(u)
 			local s = tostring(u)
 			local x,y,z = s:match("Vector3%((.*), (.*), (.*)%)")
@@ -337,6 +341,8 @@ function Rover:AddVariable(strName, var, hParent)
 	local str = (strType == "userdata" and self:AnalyzeUserData(var))
 	         or (strType == "table" and (tostring(var):gsub("table",("table [%d,%d]"):format(getTableSize(var)))))
 					 or tostring(var)
+					 
+	if #str>100 then str=str:sub(1,100).." ..." end
 
 	self.wndTree:SetNodeText(hNewNode, eRoverColumns.Value, str)
 	self:UpdateTimeStamp(hNewNode)
@@ -387,10 +393,14 @@ function Rover:OnTwoClicks( wndHandler, wndControl, hNode )
 	end
 
 	self.wndTree:DeleteChildren(hNode)
+
+	local hGrandParent = self.wndTree:GetParentNode(hParent)
 	
 	self:AddCallResult(hNode, pcall(function()
 		if self.wndTree:GetNodeText(hParent) == 'metatable' then
 			return var(self.wndTree:GetNodeData(self.wndTree:GetParentNode(hParent)))
+		elseif hGrandParent and self.wndTree:GetNodeText(hGrandParent) == 'metatable' then
+			return var(self.wndTree:GetNodeData(self.wndTree:GetParentNode(hGrandParent)))
 		else
 			return var()
 		end
